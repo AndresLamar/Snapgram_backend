@@ -678,35 +678,3 @@ export class PostModel {
         }
     }
 }
-
-
-const A = [
-  {
-      "id": 1,
-      "creator_id": "e904156f-9598-4127-881b-e77ccec5e2d4",
-      "caption": "Ferrari LB",
-      "imageurl": "https://res.cloudinary.com/dljtdparo/image/upload/v1710969305/snapgram_posts/supt9tf3yzraqy2yw3ie.jpg",
-      "imageid": "snapgram_posts/supt9tf3yzraqy2yw3ie",
-      "location": "Germany",
-      "likes_count": 0,
-      "has_liked": false,
-      "has_saved": false,
-      "created_at": "2024-05-14T01:22:45.113Z",
-      "creator": {
-          "id": "e904156f-9598-4127-881b-e77ccec5e2d4",
-          "name": "Andrés",
-          "username": "AndresLamar",
-          "email": "andresisfelipe20@gmail.com",
-          "phonenumber": null,
-          "bio": null,
-          "imageurl": null,
-          "imageid": null
-      },
-      "tags": [
-          "supercar",
-          "ferrari",
-          "LibertyWalk"
-      ],
-      "pageNumber": 1
-  }
-]
