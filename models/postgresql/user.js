@@ -42,12 +42,12 @@ export class UserModel{
     }
 
     static async getUser(input) {      
-        const { username } = input;
+        const { userId } = input;
     
         try {
           const result = await pool.query(
-            'SELECT id, name, username, email, phonenumber, bio, imageUrl, imageId FROM users WHERE username = $1;',
-            [username]
+            'SELECT id, name, username, email, phonenumber, bio, imageUrl, imageId FROM users WHERE id = $1;',
+            [userId]
           );
     
           return result.rows[0];
@@ -118,7 +118,7 @@ export class UserModel{
     
           const postsQuery = {
             text: `
-              SELECT id, creator_id, caption, imageUrl, imageId, location, likes_count, has_liked, has_saved, created_at 
+              SELECT id, creator_id, caption, imageUrl, imageId, location, likes_count, created_at 
               FROM posts 
               WHERE creator_id = $1
               ORDER BY created_at DESC 
@@ -175,8 +175,6 @@ export class UserModel{
                   p.imageId, 
                   p.location, 
                   p.likes_count, 
-                  p.has_liked, 
-                  p.has_saved,
                   p.created_at 
               FROM 
                   posts p
@@ -275,7 +273,7 @@ export class UserModel{
     
           const postsQuery = {
             text: `
-              SELECT posts.id, posts.creator_id, posts.caption, posts.imageUrl, posts.imageId, posts.location, posts.likes_count, posts.has_liked, posts.has_saved, posts.created_at 
+              SELECT posts.id, posts.creator_id, posts.caption, posts.imageUrl, posts.imageId, posts.location, posts.likes_count,  posts.created_at 
               FROM posts 
               INNER JOIN saves ON posts.id = saves.post_id 
               WHERE user_id = $1 

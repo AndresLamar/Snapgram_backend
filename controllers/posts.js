@@ -24,15 +24,22 @@ export class PostController {
       return res.status(400).json({error: 'Id not provided'})
     }
 
-    const post = await this.postModel.getById({ id })
-    if(post) return res.status(200).json(post)
+    try {
+      const post = await this.postModel.getPostById({ id })
+      if(post) return res.status(200).json(post)
+    } catch (error) {
+      console.log(error)
+      res.status(404).json({ message: 'Post not found' })
 
-    res.status(404).json({ message: 'Post not found' })
+    }
+
   }
    
   getInfinitePosts = async (req, res) => {
     
     const { page, limit } = req.query;
+
+    const { user_id } = req.params
 
     const postsPerPage = parseInt(limit); // Número de posts por página
     const currentPage = parseInt(page) ; // Página actual, por defecto 1
@@ -42,7 +49,7 @@ export class PostController {
       const startIndex = currentPage * limit ;
 
       // Obtiene los posts desde la base de datos
-      const posts = await this.postModel.getInfinitePosts(startIndex, postsPerPage);
+      const posts = await this.postModel.getInfinitePosts(startIndex, postsPerPage, user_id);
 
       // Devuelve los posts al cliente
       res.status(200).json(posts);
@@ -95,7 +102,9 @@ export class PostController {
   getStats = async (req,res) => {
     const { post_id } = req.params
 
-    const result = await this.postModel.getStats(post_id)
+    const { user_id } = req.query
+
+    const result = await this.postModel.getStats(post_id, user_id)
 
     if(result) return res.status(200).json(result)
 
@@ -129,10 +138,11 @@ export class PostController {
 
   searchPosts = async (req, res) => {
     const { searchTerm } = req.params;
+    const { user_id } = req.query
 
     try {
       // Llamar al método del modelo para buscar posts por término de búsqueda
-      const posts = await this.postModel.searchPosts(searchTerm);
+      const posts = await this.postModel.searchPosts(searchTerm, user_id);
 
       // Devolver los posts encontrados
       res.status(200).json(posts);
