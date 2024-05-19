@@ -10,7 +10,7 @@ export const createPostRouter = ({ postModel }) => {
   postRouter.get('/test', postController.test)
 
   postRouter.get('/', postController.getAll)
-  postRouter.get('/infinite',  postController.getInfinitePosts);
+  postRouter.get('/infinite/:user_id',  postController.getInfinitePosts);
   postRouter.get('/comments/:post_id', postController.getComments)
   postRouter.get('/stats/:post_id', postController.getStats)
   postRouter.get('/likes/:post_id', postController.getLikes) 

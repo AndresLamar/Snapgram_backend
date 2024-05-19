@@ -79,7 +79,7 @@ export class PostModel {
         }
     }
     
-    static async getById({ id }) {
+    static async getPostById({ id }) {
         try {
           const postQuery = {
             text: `
@@ -91,8 +91,6 @@ export class PostModel {
                 imageId, 
                 location, 
                 likes_count, 
-                has_liked, 
-                has_saved, 
                 created_at 
               FROM 
                 posts 
@@ -117,33 +115,43 @@ export class PostModel {
         }
     }    
 
-    static async getInfinitePosts(startIndex, limit) {
+    static async getInfinitePosts(startIndex, limit, user_id) {
         try {
-          const pageNumber = Math.floor(startIndex / limit) + 1;
+          const pageNumber = Math.floor(startIndex / limit) + 1; 
     
           const postsQuery = {
             text: `
-              SELECT 
-                id, 
-                creator_id, 
-                caption, 
-                imageUrl, 
-                imageId, 
-                location, 
-                likes_count, 
-                has_liked, 
-                has_saved, 
-                created_at 
-              FROM 
-                posts 
-              ORDER BY 
-                created_at DESC 
-              LIMIT 
+            SELECT 
+                p.id, 
+                p.creator_id, 
+                p.caption, 
+                p.imageUrl, 
+                p.imageId, 
+                p.location, 
+                p.likes_count, 
+                p.created_at,
+                CASE 
+                    WHEN l.user_id IS NOT NULL THEN TRUE 
+                    ELSE FALSE  
+                END AS has_liked,
+                CASE 
+                    WHEN s.user_id IS NOT NULL THEN TRUE 
+                    ELSE FALSE 
+                END AS has_saved
+            FROM 
+                posts p
+            LEFT JOIN 
+                likes l ON p.id = l.post_id AND l.user_id = $3
+            LEFT JOIN 
+                saves s ON p.id = s.post_id AND s.user_id = $3
+            ORDER BY 
+                p.created_at DESC 
+            LIMIT 
                 $2 
-              OFFSET 
+            OFFSET 
                 $1;
             `,
-            values: [startIndex, limit],
+            values: [startIndex, limit, user_id],
           };
           const postsResult = await pool.query(postsQuery);
           const posts = postsResult.rows;
@@ -241,21 +249,32 @@ export class PostModel {
         }
     }
 
-    static async getStats(post_id) {
+    static async getStats(post_id, user_id) {
+ 
         try {
           const statsQuery = {
             text: `
-              SELECT 
-                likes_count, 
-                has_liked, 
-                has_saved, 
-                comment_count 
+              SELECT  
+                p.likes_count, 
+                p.comment_count, 
+              CASE 
+                WHEN l.user_id IS NOT NULL THEN TRUE 
+                ELSE FALSE  
+              END AS has_liked,
+              CASE 
+                WHEN s.user_id IS NOT NULL THEN TRUE 
+                ELSE FALSE 
+              END AS has_saved
               FROM 
-                posts 
+                posts p
+              LEFT JOIN 
+                likes l ON p.id = l.post_id AND l.user_id = $2
+              LEFT JOIN 
+                saves s ON p.id = s.post_id AND s.user_id = $2  
               WHERE 
-                id = $1;
+                p.id = $1;
             `,
-            values: [post_id],
+            values: [post_id, user_id],
           };
           const result = await pool.query(statsQuery);
           return result.rows[0];
@@ -333,7 +352,7 @@ export class PostModel {
         }
     }
 
-    static async searchPosts(searchTerm) {
+    static async searchPosts(searchTerm, user_id) {
         try {
           const searchQuery = {
             text: `
@@ -344,12 +363,22 @@ export class PostModel {
                 p.imageUrl, 
                 p.imageId, 
                 p.location, 
-                p.likes_count, 
-                p.has_liked, 
-                p.has_saved, 
+                p.likes_count,
+                CASE  
+                    WHEN l.user_id IS NOT NULL THEN TRUE 
+                    ELSE FALSE 
+                END AS has_liked,
+                CASE 
+                    WHEN s.user_id IS NOT NULL THEN TRUE 
+                    ELSE FALSE 
+                END AS has_saved, 
                 p.created_at 
               FROM 
                 posts AS p
+              LEFT JOIN 
+                likes l ON p.id = l.post_id AND l.user_id = $2
+              LEFT JOIN 
+                saves s ON p.id = s.post_id AND s.user_id = $2  
               INNER JOIN 
                 posts_tags AS pt ON p.id = pt.post_id
               INNER JOIN 
@@ -359,7 +388,7 @@ export class PostModel {
               ORDER BY 
                 p.created_at DESC;
             `,
-            values: [`%${searchTerm}%`],
+            values: [`%${searchTerm}%`, user_id],
           };
           const { rows: posts } = await pool.query(searchQuery);
     
@@ -603,14 +632,30 @@ export class PostModel {
         }
     }
 
+    static async userHasLiked (user_id, post_id) {
+      try {
+        const res = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND post_id = $2', [user_id, post_id])
+ 
+        console.log(res.rows)
+
+        return res.rows.length
+
+      } catch (e) {
+        console.log(e)
+      }
+    }
+
     static async like(user_id, post_id) {
         try {  
           await pool.query('BEGIN');
+
     
           // Agregar like a la tabla de likes
           await pool.query('INSERT INTO likes (user_id, post_id) VALUES ($1, $2)', [user_id, post_id]);
-    
-          await pool.query('UPDATE posts SET likes_count = likes_count + 1, has_liked = TRUE WHERE id = $1', [post_id]);
+          
+
+          await pool.query('UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1', [post_id]);
+
     
           await pool.query('COMMIT');
         } catch (error) {
@@ -628,14 +673,15 @@ export class PostModel {
           // Eliminar el like de la tabla likes
           await pool.query('DELETE FROM likes WHERE user_id = $1 AND post_id = $2', [user_id, post_id]);
     
-          await pool.query('UPDATE posts SET likes_count = likes_count - 1, has_liked = FALSE WHERE id = $1', [post_id]);
+          await pool.query('UPDATE posts SET likes_count = likes_count - 1 WHERE id = $1', [post_id]);
+
     
           await pool.query('COMMIT');
     
         } catch (error) {
           await pool.query('ROLLBACK');
     
-          console.error('Error al quitar like:', error);
+          console.error('Error al quitar like:', error); 
           throw new Error('Error al quitar like');
         }
     }
@@ -647,7 +693,7 @@ export class PostModel {
           // Agregar el like a la tabla likes
           await pool.query('INSERT INTO saves (user_id, post_id) VALUES ($1, $2)', [user_id, post_id]);
     
-          await pool.query('UPDATE posts SET has_saved = TRUE WHERE id = $1', [post_id]);
+          // await pool.query('UPDATE posts SET has_saved = TRUE WHERE id = $1', [post_id]);
     
           await pool.query('COMMIT');
     
@@ -666,7 +712,7 @@ export class PostModel {
           // Eliminar el like de la tabla likes
           await pool.query('DELETE FROM saves WHERE user_id = $1 AND post_id = $2', [user_id, post_id]);
     
-          await pool.query('UPDATE posts SET has_saved = FALSE WHERE id = $1', [post_id]);
+          // await pool.query('UPDATE posts SET has_saved = FALSE WHERE id = $1', [post_id]);
     
           await pool.query('COMMIT');
     
